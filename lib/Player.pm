@@ -42,7 +42,7 @@ sub new {
 sub choose_goal {
   my $self=shift;
   my $board=shift;
-  my $max_digits=shift // 2;
+  my $max_digits=shift // 3;
   my $B=Board->new();  # empty bag, to be replaced
   # look for constructibility for each goal option
   for my $g (::shuffle $board->goal_options($max_digits)) {  
