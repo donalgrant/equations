@@ -42,7 +42,7 @@ is( $P->choose_goal(Board->new(Bag->new(qw( 1 - + / )))),        undef, "No goal
 is( $P->choose_goal(Board->new(Bag->new(qw( 1 2 3 * / )))),      undef, "No goal possible:  cannot construct" );
 is( $P->choose_goal(Board->new(Bag->new(qw( 1 2 1 2 * / ))), 1), undef, "No goal possible:  1 digit, no singletons" );
 
-my $cube_str="*++------///001111112333356@@@25";
+my $cube_str='*++------///001111112333356@@@25';
 
 while (1) {
   $B=Board->new(Bag->new(split('',$cube_str)));

@@ -75,7 +75,7 @@ for (1..10000) { $h{$black->roll()->showing()}=1 }  # 10,000 rolls of a Black_Cu
 same_content [keys %h], [@f], "All faces rolled after 10,000 tries";
 
 my $cb=Cube_Bag->new($red,$blue,$green,$black);
-$regex='['.join('',sort {$a cmp $blue} $red->showing(),$blue->showing(),$green->showing(),$black->showing()).']';
+$regex='['.join('',sort {$a cmp $b} $red->showing(),$blue->showing(),$green->showing(),$black->showing()).']';
 isa_ok( $cb, 'Cube_Bag' );
 my @cbf=$cb->showing();
 is( scalar(@cbf), 4, "four cubes in Cube_Bag" );
