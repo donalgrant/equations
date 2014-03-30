@@ -103,12 +103,15 @@ sub available { return $_[0]->unused()->add($_[0]->required())->add($_[0]->permi
 
 sub display {
   my $self=shift;
+  my $div='_' x 40;
   my $out=
+    $div                                                                  . "\n" .
     "Board:      ".join('',sort { $a cmp $b } $self->unused()->list())    . "\n" .
     "Required:   ".join('',sort { $a cmp $b } $self->required()->list())  . "\n" .
     "Permitted:  ".join('',sort { $a cmp $b } $self->permitted()->list()) . "\n" .
     "Forbidden:  ".join('',sort { $a cmp $b } $self->forbidden()->list()) . "\n" .
-    "Goal:  ".$self->goal();
+    "Goal:  ".$self->goal()                                               . "\n" .
+    $div;
   return $out;
 }
 

@@ -31,10 +31,10 @@ my @shuffled=::shuffle @list;  # make a copy
 is( scalar(@list), scalar(@shuffled), "shuffle preserves array length" );
 is_deeply( [ sort { $a cmp $b } @shuffled ], [ sort { $a cmp $b } @list ], "shuffle retains all elements" );
 my $same=1;
-for my $i (0..$#list) { $same &&= ($list[$i]==$shuffled[$i]) }
+for my $i (0..$#list) { $same &&= ($list[$i] eq $shuffled[$i]) }
 isnt( $same, 1, "shuffle altered the order of the list.  (Might not always happen, but fail should be very rare.)" );
 $same=1;
-for my $i (0..$#list) { $same &&= ($original_list[$i]==$list[$i]) }
+for my $i (0..$#list) { $same &&= ($original_list[$i] eq $list[$i]) }
 is( $same, 1, "shuffle didn't alter the order of original list." );
 
 
