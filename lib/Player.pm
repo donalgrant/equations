@@ -81,8 +81,12 @@ sub manual {
     when (/^E/i) { 
       my $must_use=$B->required()->add($move);
       my $now_avail=$B->permitted()->add($must_use);
-      print "Enter RPN Equation:  ";
-      my $rpn_in=<STDIN>;  chomp $rpn_in;  my $rpn=RPN->new($rpn_in);
+      print "Enter Equation in either AOS or RPN form; use '?' to escape:  ";
+      my $rpn;
+      my $eq_in=<STDIN>;   chomp $eq_in;  
+      if    (RPN::valid_rpn($eq_in)) { $rpn=RPN->new($eq_in) }
+      elsif (RPN::valid_aos($eq_in)) { $rpn=RPN->new_from_aos($eq_in) }
+      else                           { return $self->manual($B,$bonus_taken) }
       my $rpn_cubes=Bag->new($rpn->list());
       my $result=$rpn->value();  # need to validate RPN here
       do { ::msg "Your RPN=$result, which is not the goal!";      return $self->manual($B,$bonus_taken) }
@@ -118,7 +122,7 @@ sub computed {
   for ($B->unused()->set()) {
     my $go_out=Board::filter_solutions_usable($solutions,$Go_Out_Cubes->copy()->add($_));
     if (scalar @$go_out) {
-      say "I win!  I can go out with solution(s):\n",join("\n",@$go_out);
+      say "I win!  I can go out with solution(s):\n",join("\n",map { $_->aos() } @$go_out);
       return 0;
     }
   }

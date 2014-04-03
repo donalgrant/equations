@@ -46,7 +46,7 @@ $B->move_to_goal($g);
 
 while (1) {
 
-  last unless $P->manual($B);      # human player's move  
+  last unless $P->manual($B);    # human player's move  
   last unless $P->computed($B);  # computer move
 
 }
