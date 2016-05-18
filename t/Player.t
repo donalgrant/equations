@@ -44,7 +44,9 @@ is( $P->choose_goal(Board->new(Bag->new(qw( 1 2 1 2 * / ))), 1), undef, "No goal
 
 my $cube_str='*++------///001111112333356@@@25';
 
-while (1) {
+# play five boards
+
+for (5) {
   $B=Board->new(Bag->new(split('',$cube_str)));
   my $g=$P->choose_goal($B);
   ok( defined $g, "Choose a goal" );
