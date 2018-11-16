@@ -2,15 +2,28 @@ use v6;
 
 class Cube {
 
-  has @!faces;
-  has $!showing;
+  has $.faces;    # List of faces -- won't change after initialization
+  has $.showing;  # Which of the faces is up any time -- changed by .roll method
 
-  method roll    { $!showing=@!faces.pick }
-  method showing { $!showing }
-  method faces   { @!faces }
-
-  method BUILD( @faces ) { @!faces=@faces; .roll }
+  method roll                  { $!showing=$!faces.pick }
+  method new ( $faces )        { self.bless( :$faces ) }
+  submethod BUILD ( :$!faces ) { self.roll }
   
+}
+
+class   Red_Cube is Cube { method new () { callwith(qw< 0 1 2 3 + - >) } }
+class  Blue_Cube is Cube { method new () { callwith(qw< 0 1 2 3 * / >) } }
+class Green_Cube is Cube { method new () { callwith(qw< 4 5 6 ^ - / >) } }
+class Black_Cube is Cube { method new () { callwith(qw< 7 8 9 @ - / >) } }
+
+class Cube_Bag {
+
+  has Cube @.dice;
+
+  method new ( @dice )       { self.bless( :@dice ) }
+  method roll ()             { for @!dice { .roll } }
+  method showing ()          { @!dice.map(*.showing) }
+  method unique ()           { self.showing.Set.keys }
 }
 
 =head1 NAME
@@ -34,38 +47,25 @@ Cube.pm6 - Cube for use in Equations
    Blue_Cube::new(@) - constructor for a die with faces 0,1,2,3,*,/
   Green_Cube::new(@) - constructor for a die with faces 4,5,6,^,-,/
   Black_cube::new(@) - constructor for a die with faces 7,8,9,@,-,/
+  
 =end pod
 =head2 Mutators
 =begin pod
+
   roll() - randomly selects one of the faces to be displayed with the showing() method
            this changes the internal state of the object.  A reference to the object is returned.
            So, to roll and get the result, use $cube->roll()->showing()
+	   
 =end pod
 =head2 Accessor
 =begin pod
+
   showing() - displays the upward face (set by a call to roll()
     faces() - array of all faces on the cube
+    
 =end pod
-=finish
 
-package Red_Cube;  
-push @Red_Cube::ISA, qw( Cube );
-sub new { my $class=shift; return $class->SUPER::new('0','1','2','3','+','-') }
-
-package Blue_Cube;  
-push @Blue_Cube::ISA, qw( Cube );
-sub new { my $class=shift; return $class->SUPER::new('0','1','2','3','*','/') }
-
-package Green_Cube;  
-push @Green_Cube::ISA, qw( Cube );
-sub new { my $class=shift; return $class->SUPER::new('4','5','6','^','*','-') }
-
-package Black_Cube;  
-push @Black_Cube::ISA, qw( Cube );
-sub new { my $class=shift; return $class->SUPER::new('7','8','9','/','-','@') }
-
-
-=head2
+=begin pod
 
   Cube_Bag package manages a collection of Cubes of any sort.  The methods are:
  
@@ -74,7 +74,10 @@ sub new { my $class=shift; return $class->SUPER::new('7','8','9','/','-','@') }
    showing()  -- returns an array of the faces on the Cubes
     unique()  -- returns the faces on all the cubes, but with no duplicates
 
-=cut
+=end pod
+
+
+=finish
 
 package Cube_Bag;
 sub new     { my $class=shift; return bless { dice=>[ @_ ] }, $class }
