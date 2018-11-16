@@ -1,35 +1,4 @@
-=head1 NAME
-
-Cube.pm - Cube for use in Equations
-
-=head1 DESCRIPTION
-
-=cut
-
-=head2 Constructors
-
-  Cube::new(@) - construct a die with faces as given by the argument list.  Any number 
-                 or value of faces can be used.  The constructor does a "die roll" before
-                 returning a reference to the object.
-
-    Red_Cube::new(@) - constructor for a die with faces 0,1,2,3,+,-
-   Blue_Cube::new(@) - constructor for a die with faces 0,1,2,3,*,/
-  Green_Cube::new(@) - constructor for a die with faces 4,5,6,^,-,/
-  Black_cube::new(@) - constructor for a die with faces 7,8,9,@,-,/
-
-=head2 Mutators
-
-  roll() - randomly selects one of the faces to be displayed with the showing() method
-           this changes the internal state of the object.  A reference to the object is returned.
-           So, to roll and get the result, use $cube->roll()->showing()
-
-
-=head2 Accessor
-
-  showing() - displays the upward face (set by a call to roll()
-    faces() - array of all faces on the cube
-
-=cut
+use v6;
 
 class Cube {
 
@@ -40,11 +9,44 @@ class Cube {
   method showing { $!showing }
   method faces   { @!faces }
 
-  sub new ( :@faces ) {
-    .roll();
-  }
-
+  method BUILD( @faces ) { @!faces=@faces; .roll }
+  
 }
+
+=head1 NAME
+
+=begin pod
+
+Cube.pm6 - Cube for use in Equations
+
+=end pod
+
+=head1 DESCRIPTION
+
+=head2 Constructors
+=begin pod
+
+  Cube::new(@) - construct a die with faces as given by the argument list.  Any number 
+                 or value of faces can be used.  The constructor does a "die roll" before
+                 returning a reference to the object.
+
+    Red_Cube::new(@) - constructor for a die with faces 0,1,2,3,+,-
+   Blue_Cube::new(@) - constructor for a die with faces 0,1,2,3,*,/
+  Green_Cube::new(@) - constructor for a die with faces 4,5,6,^,-,/
+  Black_cube::new(@) - constructor for a die with faces 7,8,9,@,-,/
+=end pod
+=head2 Mutators
+=begin pod
+  roll() - randomly selects one of the faces to be displayed with the showing() method
+           this changes the internal state of the object.  A reference to the object is returned.
+           So, to roll and get the result, use $cube->roll()->showing()
+=end pod
+=head2 Accessor
+=begin pod
+  showing() - displays the upward face (set by a call to roll()
+    faces() - array of all faces on the cube
+=end pod
+=finish
 
 package Red_Cube;  
 push @Red_Cube::ISA, qw( Cube );
@@ -81,4 +83,3 @@ sub showing { my $self=shift;  return map { $_->showing() } @{$self->{dice}} }
 sub unique  { my $self=shift;  return ::unique $self->showing() }
 
 1;
-

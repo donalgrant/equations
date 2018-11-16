@@ -7,7 +7,7 @@ use warnings;
 
 use Algorithm::Combinatorics qw( tuples );
 
-use lib '/Users/imel/gitdev/equations/lib';
+use lib '/Users/imel/gitdev/donalgrant/equations/lib';
 use Bag;
 use RPN;
 use Board;
