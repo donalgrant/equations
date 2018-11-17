@@ -5,7 +5,7 @@ class Cube {
   has $.faces;    # List of faces -- won't change after initialization
   has $.showing;  # Which of the faces is up any time -- changed by .roll method
 
-  method roll                  { $!showing=$!faces.pick }
+  method roll                  { $!showing=$!faces.pick; self }
   method new ( $faces )        { self.bless( :$faces ) }
   submethod BUILD ( :$!faces ) { self.roll }
   
@@ -39,14 +39,14 @@ Cube.pm6 - Cube for use in Equations
 =head2 Constructors
 =begin pod
 
-  Cube::new(@) - construct a die with faces as given by the argument list.  Any number 
+  Cub.new($list) - construct a die with faces as given by the argument list.  Any number 
                  or value of faces can be used.  The constructor does a "die roll" before
                  returning a reference to the object.
 
-    Red_Cube::new(@) - constructor for a die with faces 0,1,2,3,+,-
-   Blue_Cube::new(@) - constructor for a die with faces 0,1,2,3,*,/
-  Green_Cube::new(@) - constructor for a die with faces 4,5,6,^,-,/
-  Black_cube::new(@) - constructor for a die with faces 7,8,9,@,-,/
+    Red_Cube.new() - constructor for a die with faces 0,1,2,3,+,-
+   Blue_Cube.new() - constructor for a die with faces 0,1,2,3,*,/
+  Green_Cube.new() - constructor for a die with faces 4,5,6,^,-,/
+  Black_cube.new() - constructor for a die with faces 7,8,9,@,-,/
   
 =end pod
 =head2 Mutators
@@ -69,10 +69,10 @@ Cube.pm6 - Cube for use in Equations
 
   Cube_Bag package manages a collection of Cubes of any sort.  The methods are:
  
-       new(@) -- constructor, argument is an array of cubes
-      roll()  -- call the roll() method on each Cube
-   showing()  -- returns an array of the faces on the Cubes
-    unique()  -- returns the faces on all the cubes, but with no duplicates
+      new(@Cubes) -- constructor, argument is an array of cubes
+           roll() -- call the roll() method on each Cube
+        showing() -- returns an array of the faces on the Cubes
+         unique() -- returns the faces on all the cubes, but with no duplicates
 
 =end pod
 
