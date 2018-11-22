@@ -11,10 +11,23 @@ class Cube {
   
 }
 
-class   Red_Cube is Cube { method new () { callwith(qw< 0 1 2 3 + - >) } }
-class  Blue_Cube is Cube { method new () { callwith(qw< 0 1 2 3 * / >) } }
-class Green_Cube is Cube { method new () { callwith(qw< 4 5 6 ^ - / >) } }
-class Black_Cube is Cube { method new () { callwith(qw< 7 8 9 @ - / >) } }
+class Eq_Cube is Cube {
+
+  # could use unicode for @ and *...
+  
+  my %cube_faces = 'red' => qw< 0 1 2 3 + - >,
+     		  'blue' => qw< 0 1 2 3 * / >,
+		 'green' => qw< 4 5 6 ^ - / >,
+		 'black' => qw< 7 8 9 @ - / >;
+
+  method new( Str $color ) { callwith(%cube_faces{$color}) }
+  
+}
+
+class   Red_Cube is Eq_Cube { method new () { callwith('red')   } }
+class  Blue_Cube is Eq_Cube { method new () { callwith('blue')  } }
+class Green_Cube is Eq_Cube { method new () { callwith('green') } }
+class Black_Cube is Eq_Cube { method new () { callwith('black') } }
 
 class Cube_Bag {
 
@@ -39,7 +52,7 @@ Cube.pm6 - Cube for use in Equations
 =head2 Constructors
 =begin pod
 
-  Cub.new($list) - construct a die with faces as given by the argument list.  Any number 
+  Cube.new($list) - construct a die with faces as given by the argument list.  Any number 
                  or value of faces can be used.  The constructor does a "die roll" before
                  returning a reference to the object.
 
@@ -47,7 +60,14 @@ Cube.pm6 - Cube for use in Equations
    Blue_Cube.new() - constructor for a die with faces 0,1,2,3,*,/
   Green_Cube.new() - constructor for a die with faces 4,5,6,^,-,/
   Black_cube.new() - constructor for a die with faces 7,8,9,@,-,/
-  
+
+  The colored cubes are built using the Eq_Cube class which inherits from Cube and has
+  a class hash with the faces encoded for every color:
+
+  Eq_Cube.new(Str $color) - constructs an Equations Die of the color given by Str.
+                          -->Should be able to limit the values of Str to just the four
+			     as part of the Signature for new.
+			     
 =end pod
 =head2 Mutators
 =begin pod
