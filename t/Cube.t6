@@ -1,26 +1,15 @@
 #!/usr/bin/env perl6
 
 use v6;
+use Test;
 
 my $lib;
 
-BEGIN {
-  use Test;
-  $lib=q{/Users/imel/gitdev/donalgrant/equations/lib};
-#  use lib $lib;
-#  use-ok 'Cube', "Make sure we can import the Cube.pm6 module";
-}
+BEGIN { $lib=q{/Users/imel/gitdev/donalgrant/equations/lib} }
 
-use Test;
 use lib $lib;
+use-ok 'Cube', "Make sure we can import the Cube.pm6 module";
 use Cube;
-
-#sub same_content($$$) {
-#  my $ha=shift;
-#  my $hb=shift;
-#  my $msg=shift;
-#  is_deeply( [sort { $a cmp $b } @$ha], [sort { $a cmp $b } @$hb], $msg );
-#}
 
 my ($c, $r, $b, $g, $k)=Cube.new('a'.list), Red_Cube.new(), Blue_Cube.new(), Green_Cube.new(), Black_Cube.new();
 my $cb=Cube_Bag.new([$c,$r,$b,$g,$k]);
