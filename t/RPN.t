@@ -8,7 +8,7 @@ use Test::Exception;
 use Data::Dumper;
 
 BEGIN {
-  use lib '/Users/imel/gitdev/equations/lib';
+  use lib '/Users/imel/gitdev/donalgrant/equations/lib';
   use_ok 'RPN';
 }
 

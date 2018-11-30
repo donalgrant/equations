@@ -237,7 +237,7 @@ Algorithm:
 
 This is accomplished by continuously re-doing the array of expression elements.  Anytime an expression has
 been "processed", the processed sub-expression becomes a single element in the array.  Thus, for the 
-eexpression '7+(6*(3+2)-4*(1-4))', after step 2a, the current representation will be the array:
+expression '7+(6*(3+2)-4*(1-4))', after step 2a, the current representation will be the array:
 
     7, +, (, 6, *, (, 3, +, 2, ), -, 4, *, (, 1, -, 4, ), )
 
