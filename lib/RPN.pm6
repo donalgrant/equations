@@ -8,8 +8,6 @@ class RPN {
 
   has $.rpn;
 
-  my %RPN_CACHE;   # maintained for all objects
-
   method new ($rpn) { self.bless(:$rpn) }
   method new_from_aos ($aos) {
     my $rpn=aos_to_rpn($aos);
@@ -20,201 +18,205 @@ class RPN {
   method display { $!rpn }
   method aos     { return rpn_to_aos($!rpn) }  
   method list    { $!rpn.comb }
-    
-  my %num= ^10 X=> 1;
 
-  method value {
-    return %RPN_CACHE{$!rpn} if %RPN_CACHE{$!rpn}.defined;
-    my @list=$!rpn.comb;
-    return 0 unless (+@list);
-    my @stack;
-    my $bos;
-    while (+@list and push @stack, $bos=shift @list) {
-      next if %num{$bos}.defined;  # fastest way to do matching -- much better than =~/\d/
-      my $op=@stack.pop;
-      my $n2=@stack.pop;
-      my $n1=@stack.pop;
-      my $v=calc($n1,$op,$n2);
-      return %RPN_CACHE{$!rpn}=Nil unless $v.defined;
-      push @stack, $v;
-    }
-    return %RPN_CACHE{$!rpn}=shift @stack;
-  }
-
-  method Numeric { self.value }
-  method Str     { self.display }
+  method Numeric { rpn_value($!rpn) }
+  method Str     { self.display     }
 
 }
 
+# Exported Global Functions -- not part of the RPN class itself
+
+
+my %RPN_CACHE;   # maintained for all objects
+my %NUM= ^10 X=> 1;
+
+sub rpn_value ($rpn) is export {
+  return %RPN_CACHE{$rpn} if %RPN_CACHE{$rpn}.defined;
+  my @list=$rpn.comb;
+  return 0 unless (+@list);
+  my @stack;
+  my $bos;
+  while (+@list and push @stack, $bos=shift @list) {
+    next if %NUM{$bos}.defined;  # fastest way to do matching -- much better than =~/\d/
+    my $op=@stack.pop;
+    my $n2=@stack.pop;
+    my $n1=@stack.pop;
+    my $v=calc($n1,$op,$n2);
+    return %RPN_CACHE{$rpn}=Nil unless $v.defined;
+    push @stack, $v;
+  }
+  return %RPN_CACHE{$rpn}=shift @stack;
+}
+  
 # in Perl5 profiling, this was faster than using given/when or $opssubs{$op}->($n1,$n2)
 
-  sub calc  is export {
-    my ($n1,$op,$n2)=@_;
-    return $n1+$n2                                                        if $op eq '+';
-    return $n1-$n2                                                        if $op eq '-';
-    return $n1*$n2                                                        if $op eq '*';
-    return ( ($n2==0)                     ?? Nil !! $n1/$n2)              if $op eq '/';
-    return $n1**$n2                                                       if $op eq '^';
-    return ( ($n1==0 or ($n2 < 0 and $n1 > 0)) ?? Nil !! $n2**(1.0/$n1) ) if $op eq '@';
-    quit "Unrecognized operator:  $op";
-  }
+sub calc  is export {
+  my ($n1,$op,$n2)=@_;
+  return $n1+$n2                                                        if $op eq '+';
+  return $n1-$n2                                                        if $op eq '-';
+  return $n1*$n2                                                        if $op eq '*';
+  return ( ($n2==0)                     ?? Nil !! $n1/$n2)              if $op eq '/';
+  return $n1**$n2                                                       if $op eq '^';
+  return ( ($n1==0 or ($n2 < 0 and $n1 > 0)) ?? Nil !! $n2**(1.0/$n1) ) if $op eq '@';
+  quit "Unrecognized operator:  $op";
+}
 
-  sub valid_rpn ($rpn-in) is export {
-    my $rpn=$rpn-in.trim;           # remove all white-space
-    my ($ops,$num)=(0,0);
-    for $rpn.comb {
-      if    (m{\d})       { $num++ }
-      elsif (m{<[\+\-\*\/\@\^]>}) { $ops++ }
-      else { return False }
-      return False if $ops>=$num;
-    }
-    return False unless $num>=2;
-    return False unless $ops==$num-1;
-    return True;
+sub valid_rpn ($rpn-in) is export {
+  my $rpn=$rpn-in.trim;           # remove all white-space
+  my ($ops,$num)=(0,0);
+  for $rpn.comb {
+    if    (m{\d})       { $num++ }
+    elsif (m{<[\+\-\*\/\@\^]>}) { $ops++ }
+    else { return False }
+    return False if $ops>=$num;
   }
+  return False unless $num>=2;
+  return False unless $ops==$num-1;
+  return True;
+}
 
-  sub valid_aos ($aos) is export {
-    $_=$aos;
-    s:g/\s+//;
-    return False if m{<-[0..9\(\)\+\-\/\*\^\@]>};
-    my $level=0;
-    my ($last_open);
-    my @c=$_.comb;
-    s:g/<[\(\)]>//;                                                # ignoring parentheses...
-    return False unless m{^(<[0..9]><[\-\+\*\/\@\^]>)*<[0..9]>$};  # ...should start and end with a number, and have op between
-                                                                   # ...alternating through the whole expression
-    for ^@c -> $i {                                                # step through for paren balance and some content check
-      if (@c[$i]~~/<[\(]>/) {
-        ++$level;
-        $last_open=$i;
-      }
-      elsif (@c[$i]~~/<[\)]>/) {
-        --$level;
-        return False if $level < 0;  # cannot close more expressions than are opened
-        my $op_pos;
-        for ($last_open+1)..($i-1) -> $j { $op_pos=$j if (@c[$j]~~m{ <[\-\+\*\/\^\@]> }) }
-        return False unless defined $op_pos;  # must be an operator in every parenthesized expression
-        return False unless grep m{\d}, @c[$last_open+1..$op_pos-1];  # need two arguments for every operator
-        return False unless grep m{\d}, @c[$op_pos+1..$i-1];          # one on each side of the operator
-        $_=@c[$last_open+1..$i-1].join('');
-        my $n=$_.comb(/<[0..9]>/).elems;
-        my $o=$_.comb(/<[ \+ \- \* \/ \@ \^ ]> /).elems;
-        return False unless $n-$o == 1;       # count nums and ops; always one more op than numbers
-      }
+sub valid_aos ($aos) is export {
+  $_=$aos;
+  s:g/\s+//;
+  return False if m{<-[0..9\(\)\+\-\/\*\^\@]>};
+  my $level=0;
+  my ($last_open);
+  my @c=$_.comb;
+  s:g/<[\(\)]>//;                                                # ignoring parentheses...
+  return False unless m{^(<[0..9]><[\-\+\*\/\@\^]>)*<[0..9]>$};  # ...should start and end with a number, and have op between
+                                                                 # ...alternating through the whole expression
+  for ^@c -> $i {                                                # step through for paren balance and some content check
+    if (@c[$i]~~/<[\(]>/) {
+      ++$level;
+      $last_open=$i;
     }
-    return False if $level;      # must be balanced parens
-    return True;
+    elsif (@c[$i]~~/<[\)]>/) {
+      --$level;
+      return False if $level < 0;  # cannot close more expressions than are opened
+      my $op_pos;
+      for ($last_open+1)..($i-1) -> $j { $op_pos=$j if (@c[$j]~~m{ <[\-\+\*\/\^\@]> }) }
+      return False unless defined $op_pos;  # must be an operator in every parenthesized expression
+      return False unless grep m{\d}, @c[$last_open+1..$op_pos-1];  # need two arguments for every operator
+      return False unless grep m{\d}, @c[$op_pos+1..$i-1];          # one on each side of the operator
+      $_=@c[$last_open+1..$i-1].join('');
+      my $n=$_.comb(/<[0..9]>/).elems;
+      my $o=$_.comb(/<[ \+ \- \* \/ \@ \^ ]> /).elems;
+      return False unless $n-$o == 1;       # count nums and ops; always one more op than numbers
+    }
   }
+  return False if $level;      # must be balanced parens
+  return True;
+}
 
-  sub aos_to_rpn ($aos) is export {
-    $_=$aos;
-    s:g/\s+//;
-    return Nil unless valid_aos($_);
-    my @c=full_parens($_).comb;  # guarantees syntax for the rest of the conversion
-    return @c[0] if +@c==1;      # special case of a single digit
-    my (@ops,@num,@eq);
-    for @c -> $c {
-      if ($c~~m{<[0..9]>})            { push @num,$c }
-      elsif ($c~~m{<[\-\+\*\/\@\^]>}) { push @ops,$c }
-      elsif ($c~~m{<[\(]>})           { }  # nop
-      elsif ($c~~m{<[\)]>})           { push @eq, |@num; push @eq, pop @ops; @num=() }
-      else                            { quit "unrecognized character $c in aos" }
+sub aos_to_rpn ($aos) is export {
+  $_=$aos;
+  s:g/\s+//;
+  return Nil unless valid_aos($_);
+  my @c=full_parens($_).comb;  # guarantees syntax for the rest of the conversion
+  return @c[0] if +@c==1;      # special case of a single digit
+  my (@ops,@num,@eq);
+  for @c -> $c {
+    if ($c~~m{<[0..9]>})            { push @num,$c }
+    elsif ($c~~m{<[\-\+\*\/\@\^]>}) { push @ops,$c }
+    elsif ($c~~m{<[\(]>})           { }  # nop
+    elsif ($c~~m{<[\)]>})           { push @eq, |@num; push @eq, pop @ops; @num=() }
+    else                            { quit "unrecognized character $c in aos" }
+  }
+  return @eq.join('');
+}
+
+# not quite sure what the best spacing and parentheses are
+
+sub _rpn_array_to_aos (@R) {
+  return @R[0] if @R.elems==1;
+  my $i=2;
+  while ( !(@R[$i]~~m{^<[\-\*\/\@\^\+]>$}) ) { $i++; last if $i>@R.elems }  # should return error -- last token must be op!
+  my $s1=(@R[$i-2]~~m{<[\)]>\s*$}) ?? '' !! '';  # for now, always no space
+  my $s2=(@R[$i-1]~~m{^\s*<[\(]>}) ?? '' !! '';  # ...on both sides
+  my $e="@R[$i-2]$s1@R[$i]$s2@R[$i-1]";
+  my @x=@R.elems>3 ?? "($e)" !! $e;
+  unshift @x, |@R[0..$i-3] if $i > 2;
+  push @x, |@R[$i+1..@R.end]  if $i < @R.end;
+  return _rpn_array_to_aos(@x);
+}
+
+# argument to rpn_to_aos must be guaranteed to be a valid RPN.  
+# can use valid_rpn to ensure this if necessary
+
+sub rpn_to_aos ($R) is export { return _rpn_array_to_aos($R.comb) }
+
+sub find_inner_parens (@c) is export {
+  my $pstart;
+  my $level=0;
+  for ^@c -> $i { 
+    if (@c[$i] eq '(') {
+      $pstart=$i;
+      $level++;
     }
-    return @eq.join('');
-  }
-  
-  # not quite sure what the best spacing and parentheses are
-  
-  sub _rpn_array_to_aos (@R) {
-    return @R[0] if @R.elems==1;
-    my $i=2;
-    while ( !(@R[$i]~~m{^<[\-\*\/\@\^\+]>$}) ) { $i++; last if $i>@R.elems }  # should return error -- last token must be op!
-    my $s1=(@R[$i-2]~~m{<[\)]>\s*$}) ?? '' !! '';  # for now, always no space
-    my $s2=(@R[$i-1]~~m{^\s*<[\(]>}) ?? '' !! '';  # ...on both sides
-    my $e="@R[$i-2]$s1@R[$i]$s2@R[$i-1]";
-    my @x=@R.elems>3 ?? "($e)" !! $e;
-    unshift @x, |@R[0..$i-3] if $i > 2;
-    push @x, |@R[$i+1..@R.end]  if $i < @R.end;
-    return _rpn_array_to_aos(@x);
-  }
-  
-  # argument to rpn_to_aos must be guaranteed to be a valid RPN.  
-  # can use valid_rpn to ensure this if necessary
-  
-  sub rpn_to_aos ($R) is export { return _rpn_array_to_aos($R.comb) }
-  
-  sub find_inner_parens (@c) is export {
-    my $pstart;
-    my $level=0;
-    for ^@c -> $i { 
-      if (@c[$i] eq '(') {
-        $pstart=$i;
-        $level++;
-      }
-      elsif (@c[$i] eq ')') {
-        $level--;
-        return (Nil,Nil) if $level < 0;  # unbalanced parens
-        return ($pstart,$i);           # balanced inner parens found
-      }
+    elsif (@c[$i] eq ')') {
+      $level--;
+      return (Nil,Nil) if $level < 0;  # unbalanced parens
+      return ($pstart,$i);           # balanced inner parens found
     }
-    return (Nil,Nil) unless $level == 0;  # unbalanced parens
-    return (-1,-1);                       # no parens
   }
-  
-  # argument is array of elements with no parens
-  
-  sub parens_for_op ($op,@c-in) is export {
-    my @c=@c-in;
-    my @op=$op.comb;
-    my @cops=@c.grep( / ^ @op $ / );
-    for @cops {  # single element operator, highest precedence
-      my $i=0; while (!(@c[$i]~~$_)) { $i++ }  # guaranteed to find one here
-      my @r;
-      for 0..$i-3 { push @r,@c[$_] }
-      push @r,@c[$i-2] unless ($i-2 < 0     ) || (@c[$i-2] eq '(');
-      push @r, '('~@c[$i-1..$i+1].join('')~')';
-      push @r,@c[$i+2] unless ($i+2 > @c.end) || (@c[$i+2] eq ')');
-      for $i+3..@c.end { push @r, @c[$_] } 
-      @c = @r;
+  return (Nil,Nil) unless $level == 0;  # unbalanced parens
+  return (-1,-1);                       # no parens
+}
+
+# argument is array of elements with no parens
+
+sub parens_for_op ($op,@c-in) is export {
+  my @c=@c-in;
+  my @op=$op.comb;
+  my @cops=@c.grep( / ^ @op $ / );
+  for @cops {  # single element operator, highest precedence
+    my $i=0; while (!(@c[$i]~~$_)) { $i++ }  # guaranteed to find one here
+    my @r;
+    for 0..$i-3 { push @r,@c[$_] }
+    push @r,@c[$i-2] unless ($i-2 < 0     ) || (@c[$i-2] eq '(');
+    push @r, '('~@c[$i-1..$i+1].join('')~')';
+    push @r,@c[$i+2] unless ($i+2 > @c.end) || (@c[$i+2] eq ')');
+    for $i+3..@c.end { push @r, @c[$_] } 
+    @c = @r;
+  }
+  return @c;
+}
+
+sub parens_on_ops (@c-in) is export {
+  my @c=@c-in;
+  @c=parens_for_op('@^',@c);
+  @c=parens_for_op('*/',@c);
+  @c=parens_for_op('+-',@c);
+  return @c;
+}
+
+sub process_inner_parens(@c) is export {
+  while (my ($pstart,$pstop)=find_inner_parens(@c)) {
+    last if $pstart < 0;
+    return Nil unless ~$pstart;
+    my $nc=@c.elems;
+    my @before = ($pstart > 0)    ?? @c[0..$pstart-1]    !! ();
+    my @after  = ($pstop < $nc-1) ?? @c[$pstop+1..$nc-1] !! ();
+    if ($pstop-$pstart==2) { # detected redundant parens -- single number or paren expression 
+      @c=@c[$pstart+1];
+    } else {
+      @c=parens_on_ops(@c[$pstart..$pstop]).join('');
     }
-    return @c;
+    @c.unshift(|@before) if @before.elems;
+    @c.push(|@after) if @after.elems;
   }
-  
-  sub parens_on_ops (@c-in) is export {
-    my @c=@c-in;
-    @c=parens_for_op('@^',@c);
-    @c=parens_for_op('*/',@c);
-    @c=parens_for_op('+-',@c);
-    return @c;
-  }
-  
-  sub process_inner_parens(@c) is export {
-    while (my ($pstart,$pstop)=find_inner_parens(@c)) {
-      last if $pstart < 0;
-      return Nil unless ~$pstart;
-      my $nc=@c.elems;
-      my @before = ($pstart > 0)    ?? @c[0..$pstart-1]    !! ();
-      my @after  = ($pstop < $nc-1) ?? @c[$pstop+1..$nc-1] !! ();
-      if ($pstop-$pstart==2) { # detected redundant parens -- single number or paren expression 
-        @c=@c[$pstart+1];
-      } else {
-        @c=parens_on_ops(@c[$pstart..$pstop]).join('');
-      }
-      @c.unshift(|@before) if @before.elems;
-      @c.push(|@after) if @after.elems;
-    }
-    return False;
-  }
-  
-  sub full_parens ($s-in) is export {
-    my $s=$s-in;
-    $s~~s:g/\s+//;
-    my @c=$s.comb;
-    # first (recursively) regularize all existing parenthesized expressions.
-    return $s unless @c.elems>=3;
-    while (process_inner_parens(@c)) {}   # returns false when no substitutions are left
-    return parens_on_ops(@c).join('');
-  }
+  return False;
+}
+
+sub full_parens ($s-in) is export {
+  my $s=$s-in;
+  $s~~s:g/\s+//;
+  my @c=$s.comb;
+  # first (recursively) regularize all existing parenthesized expressions.
+  return $s unless @c.elems>=3;
+  while (process_inner_parens(@c)) {}   # returns false when no substitutions are left
+  return parens_on_ops(@c).join('');
+}
 
 =begin pod
 
