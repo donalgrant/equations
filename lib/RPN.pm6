@@ -30,6 +30,33 @@ class RPN {
 my %RPN_CACHE;   # maintained for all objects
 my %NUM= ^10 X=> 1;
 
+# Regexes / Tokens go here... MOVE TO GLOBALS?
+
+our token digit            { \d }
+our token op               { '+' | '-' | '*' | '/' | '^' | '@' }
+  
+my token open_p           { '(' }
+my token close_p          { ')' }
+my token paren            { <open_p> | <close_p> }
+
+grammar WF_AOS {
+  token TOP  {
+    [ <digit> [ <op> <TOP> ]* ] |
+    [ <pterm> [ <op> <TOP> ]* ]
+  }
+  token pterm { '(' <TOP> ')' }
+}
+
+grammar WF_RPN {
+  token TOP {
+    :my $*OP_CNT=0;
+    :my $*DGT_CNT=0;
+    [ <rpn_dig> | <rpn_op> ]+ <?{ $*OP_CNT == $*DGT_CNT-1 }>
+  }
+  token rpn_dig  { <digit> { $*DGT_CNT++ } }
+  token rpn_op   { <op>    { $*OP_CNT++  } <?{ $*OP_CNT <= $*DGT_CNT }> }
+}
+  
 sub rpn_value ($rpn) is export {
   return %RPN_CACHE{$rpn} if %RPN_CACHE{$rpn}.defined;
   my @list=$rpn.comb;
@@ -50,77 +77,32 @@ sub rpn_value ($rpn) is export {
   
 # in Perl5 profiling, this was faster than using given/when or $opssubs{$op}->($n1,$n2)
 
-sub calc  is export {
-  my ($n1,$op,$n2)=@_;
+sub calc ($n1,$op,$n2) is export {
   return $n1+$n2                                                        if $op eq '+';
   return $n1-$n2                                                        if $op eq '-';
   return $n1*$n2                                                        if $op eq '*';
-  return ( ($n2==0)                     ?? Nil !! $n1/$n2)              if $op eq '/';
+  return ( ($n2==0)                          ?? Nil !! $n1/$n2)         if $op eq '/';
   return $n1**$n2                                                       if $op eq '^';
   return ( ($n1==0 or ($n2 < 0 and $n1 > 0)) ?? Nil !! $n2**(1.0/$n1) ) if $op eq '@';
   quit "Unrecognized operator:  $op";
 }
 
-sub valid_rpn ($rpn-in) is export {
-  my $rpn=$rpn-in.trim;           # remove all white-space
-  my ($ops,$num)=(0,0);
-  for $rpn.comb {
-    if    (m{\d})       { $num++ }
-    elsif (m{<[\+\-\*\/\@\^]>}) { $ops++ }
-    else { return False }
-    return False if $ops>=$num;
-  }
-  return False unless $num>=2;
-  return False unless $ops==$num-1;
-  return True;
-}
-
-sub valid_aos ($aos) is export {
-  $_=$aos;
-  s:g/\s+//;
-  return False if m{<-[0..9\(\)\+\-\/\*\^\@]>};
-  my $level=0;
-  my ($last_open);
-  my @c=$_.comb;
-  s:g/<[\(\)]>//;                                                # ignoring parentheses...
-  return False unless m{^(<[0..9]><[\-\+\*\/\@\^]>)*<[0..9]>$};  # ...should start and end with a number, and have op between
-                                                                 # ...alternating through the whole expression
-  for ^@c -> $i {                                                # step through for paren balance and some content check
-    if (@c[$i]~~/<[\(]>/) {
-      ++$level;
-      $last_open=$i;
-    }
-    elsif (@c[$i]~~/<[\)]>/) {
-      --$level;
-      return False if $level < 0;  # cannot close more expressions than are opened
-      my $op_pos;
-      for ($last_open+1)..($i-1) -> $j { $op_pos=$j if (@c[$j]~~m{ <[\-\+\*\/\^\@]> }) }
-      return False unless defined $op_pos;  # must be an operator in every parenthesized expression
-      return False unless grep m{\d}, @c[$last_open+1..$op_pos-1];  # need two arguments for every operator
-      return False unless grep m{\d}, @c[$op_pos+1..$i-1];          # one on each side of the operator
-      $_=@c[$last_open+1..$i-1].join('');
-      my $n=$_.comb(/<[0..9]>/).elems;
-      my $o=$_.comb(/<[ \+ \- \* \/ \@ \^ ]> /).elems;
-      return False unless $n-$o == 1;       # count nums and ops; always one more op than numbers
-    }
-  }
-  return False if $level;      # must be balanced parens
-  return True;
-}
+sub valid_rpn ($rpn) is export { $_=$rpn; s:g/\s+//; return so WF_RPN.parse($_) }
+sub valid_aos ($aos) is export { $_=$aos; s:g/\s+//; return so WF_AOS.parse($_) }
 
 sub aos_to_rpn ($aos) is export {
+  return Nil unless valid_aos($aos);
   $_=$aos;
   s:g/\s+//;
-  return Nil unless valid_aos($_);
   my @c=full_parens($_).comb;  # guarantees syntax for the rest of the conversion
   return @c[0] if +@c==1;      # special case of a single digit
   my (@ops,@num,@eq);
   for @c -> $c {
-    if ($c~~m{<[0..9]>})            { push @num,$c }
-    elsif ($c~~m{<[\-\+\*\/\@\^]>}) { push @ops,$c }
-    elsif ($c~~m{<[\(]>})           { }  # nop
-    elsif ($c~~m{<[\)]>})           { push @eq, |@num; push @eq, pop @ops; @num=() }
-    else                            { quit "unrecognized character $c in aos" }
+    if    ($c~~/ <digit>   /) { push @num,$c }
+    elsif ($c~~/ <op>      /) { push @ops,$c }
+    elsif ($c~~/ <open_p>  /) { }  # nop
+    elsif ($c~~/ <close_p> /) { push @eq, |@num; push @eq, pop @ops; @num=() }
+    else                      { quit "unrecognized character $c in aos" }
   }
   return @eq.join('');
 }
@@ -130,9 +112,9 @@ sub aos_to_rpn ($aos) is export {
 sub _rpn_array_to_aos (@R) {
   return @R[0] if @R.elems==1;
   my $i=2;
-  while ( !(@R[$i]~~m{^<[\-\*\/\@\^\+]>$}) ) { $i++; last if $i>@R.elems }  # should return error -- last token must be op!
-  my $s1=(@R[$i-2]~~m{<[\)]>\s*$}) ?? '' !! '';  # for now, always no space
-  my $s2=(@R[$i-1]~~m{^\s*<[\(]>}) ?? '' !! '';  # ...on both sides
+  while ( !(@R[$i]~~/ <op> /) ) { $i++; last if $i>@R.elems }  # should return error -- last token must be op!
+  my $s1=(@R[$i-2]~~/ <close_p> \s* $ /) ?? '' !! '';          # for now, always no space
+  my $s2=(@R[$i-1]~~/^ \s* <open_p>   /) ?? '' !! '';          # ...on both sides
   my $e="@R[$i-2]$s1@R[$i]$s2@R[$i-1]";
   my @x=@R.elems>3 ?? "($e)" !! $e;
   unshift @x, |@R[0..$i-3] if $i > 2;

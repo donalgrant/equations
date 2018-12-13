@@ -11,6 +11,19 @@ use lib $lib;
 use-ok 'RPN';
 use RPN;
 
+note "check global variables from RPN";
+
+ok  '5'~~/^<digit>$/,  "5 is a digit";
+ok  '*'~~/^<op>$/,     "* is an op";
+nok '55'~~/^<digit>$/, "55 is not a (single) digit";
+nok '**'~~/^<op>$/,    "** is not a (single) op";
+
+ok /^<digit>$/, "digit $_ is matched" for 0..9;
+ok /^<op>$/,    "op $_ is matched" for qw< + - * / ^ @ >;
+
+nok /^<digit>$/, "op $_ doesn't match to digit" for qw< + - * / ^ @ >;
+nok /^<op>$/,    "digit $_ doesn't match to op" for 0..9;
+
 my @rpn_methods=qw<new new_from_aos rpn display aos list Numeric Str>;
 
 my $rpn=RPN.new('76+');  
@@ -18,17 +31,17 @@ can-ok $rpn, $_  for @rpn_methods;
 isa-ok $rpn, RPN;
 
 is( $rpn.rpn, '76+', "public method rpn for RPN");
-is( $rpn.Numeric(), 13, "simple addition" );
+is( $rpn.Numeric, 13, "simple addition" );
 
-is( RPN.new("76+").Numeric(), 13, "cached" );
-is( RPN.new('76*').Numeric(), 42, "simple multiplication" );
-is( RPN.new('82/').Numeric(), 4,  "simple division" );
-is( RPN.new('76-').Numeric(), 1,  "simple subtraction" );
-is( RPN.new('38@').Numeric(), 2,  "roots" );
-is( RPN.new('25^').Numeric(), 32, "exponent" );
+is( RPN.new("76+").Numeric, 13, "cached" );
+is( RPN.new('76*').Numeric, 42, "simple multiplication" );
+is( RPN.new('82/').Numeric, 4,  "simple division" );
+is( RPN.new('76-').Numeric, 1,  "simple subtraction" );
+is( RPN.new('38@').Numeric, 2,  "roots" );
+is( RPN.new('25^').Numeric, 32, "exponent" );
 
-is( RPN.new('98+7-6*5/2^').Numeric(), 144, "chain calculations" );
-is( RPN.new('55555+-/*').Numeric(),    -5, "stacked operations" );
+is( RPN.new('98+7-6*5/2^').Numeric, 144, "chain calculations" );
+is( RPN.new('55555+-/*').Numeric,    -5, "stacked operations" );
 		
 ok RPN.new('55555+-/*').list() == qw< + - / * 5 5 5 5 5 >, "RPN list";
 

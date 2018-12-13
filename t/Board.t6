@@ -1,0 +1,71 @@
+#!/usr/bin/env perl6
+
+use v6;
+use Test;
+
+my $lib;
+
+BEGIN { $lib=q{/Users/imel/gitdev/donalgrant/equations/lib} }
+
+use lib $lib;
+use-ok 'Board';
+use Board;
+
+my @board_methods=qw<new U R P F G clear_solutions save_solution required permitted forbidden unused goal
+		     available display move_to_required move_to_permitted move_to_forbidden move_to_goal
+		     install_goal solution_list req_tuples req_num_tuples req_ops_tuples goal_options
+		     calculate_solutions>;
+
+can-ok( Board.new(''), $_ ) for @board_methods;
+
+#my $cube_list=qw< 1 2 2 3 - + >.join('').comb;
+#my $B=Board.new($cube_list);
+my $cube_str='1223-+';
+my $B=Board.new($cube_str);
+isa-ok($B,'Board');
+
+ok $B.unused.Bag == $cube_str.comb.Bag, "initial unused";
+
+ok $B.required  == qw< >,   "initial required";
+ok $B.permitted == qw< >,   "initial permitted";
+ok $B.forbidden == qw< >,   "initial forbidden";
+
+ok $B.available == $B.unused, "initial available";
+
+is $B.goal_options.sort(+*), [ 1,3,12,13,21,22,23,31,32,
+			   122,123,132,212,213,221,
+			   223,231,232,312,321,322 ].sort(+*), "initial goals";
+
+$B.move_to_required('-');  
+$B.move_to_forbidden('3'); 
+$B.move_to_permitted('+'); 
+
+ok $B.unused    == qw< 1 2 2 >, "initial unused";
+ok $B.required  == [ '-' ],     "initial required";
+ok $B.permitted == [ '+' ],     "initial permitted";
+ok $B.forbidden == [ '3' ],     "initial forbidden";
+ok $B.available.sort == [ |$B.unused, |$B.required, |$B.permitted ].sort,  "initial available";
+
+
+ok $B.goal_options == ( 1,12,21,22,122,212,221 ), "initial goals";
+
+$B=Board.new(qw{ 0 0 0 0 2 2 3 3 3 4 5 7 7 8 8 * + + + - - / / @ @ ^ 8 3 + 8 - - / / ^ * 2 5 > }.join(''));
+$B.move_to_permitted($_) for qw{ 8 3 + };
+$B.move_to_required($_)  for qw{ 8 - - ^ * 2 5 };
+
+$B.clear_solutions;
+is $B.solution_list, Empty, "Empty solution list";
+dies-ok( sub { $B.calculate_solutions(5) }, "Attempt to Calculate Solutions prior to setting goal should fail." );
+
+$B.move_to_goal("20");
+is( $B.goal, 20, "Goal is set for this board" );
+
+lives-ok( sub { $B.calculate_solutions(5) }, "Can calculate once goal has been set." );
+is $B.solution_list, ().list, "Empty solution list (still)";
+
+lives-ok( sub { $B.calculate_solutions(9) }, "Calculate with more cubes" );
+
+my @rpn_list=$B.solution_list;
+for @rpn_list { is( $_.Numeric, $B.goal, "$_ from solution list evals to goal" ) }
+
+done-testing;
